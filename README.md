@@ -1,3 +1,4 @@
+<<<<<<< HEAD
 # Nexus - AI Disaster Prediction & Response System
 
 A full-stack hackathon-ready project combining FastAPI backend, PostgreSQL, and a vanilla HTML/CSS/JS frontend for real-time disaster prediction and emergency management.
@@ -44,3 +45,7 @@ Open your browser and navigate to `http://localhost:8080`.
 
 <br>
 Build efficiently, Demo brilliantly. Good luck!
+=======
+# Future-Mindss
+AI-based system for disaster prediction and emergency response using real-time data, weather patterns, and ML models. It identifies high-risk zones, sends early alerts, and optimizes rescue operations with smart routing and resource allocation, helping reduce damage and save lives.
+>>>>>>> 8b3aedf2fcde70bdc1630c175f6722d21e94f98a
