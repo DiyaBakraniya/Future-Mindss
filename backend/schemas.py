@@ -29,3 +29,11 @@ class ChatRequest(BaseModel):
 
 class ChatResponse(BaseModel):
     reply: str
+
+class SMSRequest(BaseModel):
+    phone_number: str
+    message: str
+
+class SMSResponse(BaseModel):
+    success: bool
+    message: str

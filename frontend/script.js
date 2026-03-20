@@ -93,13 +93,16 @@ async function selectCity(lat, lng, fullName) {
     try {
         const res = await fetch(`${API_BASE}/predict`, { method: 'POST', headers: {'Content-Type': 'application/json'}, body: JSON.stringify(payload) });
         const result = await res.json();
+        updateSMSPreview(shortName, result.severity, "Disaster Analysis");
         setTimeout(() => displayCityPrediction(shortName, lat, lng, result.severity), 1000); // 1s delay for realism
         setTimeout(() => findSafeZones(lat, lng), 1500); 
     } catch(e) {
         // Fallback demo array
         setTimeout(() => {
             let risks = ['Low', 'Medium', 'High'];
-            displayCityPrediction(shortName, lat, lng, risks[Math.floor(Math.random()*risks.length)]);
+            let randomRisk = risks[Math.floor(Math.random()*risks.length)];
+            updateSMSPreview(shortName, randomRisk, "Disaster Analysis");
+            displayCityPrediction(shortName, lat, lng, randomRisk);
             findSafeZones(lat, lng);
         }, 1000);
     }
@@ -151,15 +154,19 @@ function autoDetectLocation() {
 function populateFutureNews() {
     const feed = document.getElementById('news-feed');
     const newsData = [
-        { risk: "High", title: "Cyclone expected in Mumbai tomorrow", msg: "Category 5 alert issued.", icon: "🔴", time: "Just now" },
-        { risk: "Medium", title: "Heavy rainfall warning", msg: "Jakarta expects intense downpour.", icon: "🟠", time: "2h ago" },
-        { risk: "Low", title: "No immediate danger", msg: "Seismic baseline normal in NY.", icon: "🟢", time: "5h ago" },
+        { risk: "High", title: "Cyclone expected in Mumbai tomorrow", msg: "Category 5 alert issued.", icon: "🔴", time: "Just now", conf: 98 },
+        { risk: "Medium", title: "Heavy rainfall warning", msg: "Jakarta expects intense downpour.", icon: "🟠", time: "2h ago", conf: 82 },
+        { risk: "Low", title: "No immediate danger", msg: "Seismic baseline normal in NY.", icon: "🟢", time: "5h ago", conf: 99 },
     ];
     let html = '';
     newsData.forEach(item => {
         html += `<div class="card-item ${item.risk}">
-            <div class="card-header"><span class="card-title">${item.title}</span></div>
+            <div class="card-header">
+                <span class="card-title">${item.title}</span>
+                <span class="conf-badge conf-${item.risk}">${item.conf}% AI CONF</span>
+            </div>
             <div class="card-msg">${item.msg}</div>
+            <div class="card-time">⌚ ${item.time}</div>
         </div>`;
     });
     feed.innerHTML = html;
@@ -177,11 +184,13 @@ async function simulateEvent(type) {
         if (!res.ok) throw new Error("API Failed");
         const result = await res.json();
         
+        updateSMSPreview(data.name, result.severity, data.type);
         showOnMap(data.lat, data.lng, result.severity, data.name);
         if (result.severity === 'High') triggerWowFeature(data.type, data.name);
         fetchAlerts(); 
     } catch(e) { 
         // Fallback
+        updateSMSPreview(data.name, 'High', data.type);
         showOnMap(data.lat, data.lng, 'High', data.name);
         triggerWowFeature(data.type, data.name);
     }
@@ -202,6 +211,12 @@ function triggerWowFeature(type, location) {
     speakAlert(`Warning: High risk ${type} detected in ${location}. Evacuate immediately.`);
     document.getElementById('global-warning-title').innerText = `⚠️ Exteme Risk: ${type}`;
     document.getElementById('global-warning-overlay').classList.remove('hidden');
+    
+    // Auto trigger SMS if phone is entered
+    const phoneInput = document.getElementById('sms-phone')?.value.trim();
+    if (phoneInput && /^\d{10,15}$/.test(phoneInput)) {
+        sendSMSAlert();
+    }
 }
 
 function closeGlobalWarning() { document.getElementById('global-warning-overlay').classList.add('hidden'); synth.cancel(); }
@@ -224,10 +239,11 @@ async function fetchAlerts() {
             div.className = `card-item ${alert.severity}`;
             div.innerHTML = `
                 <div class="card-header">
-                    <span class="card-title">${alert.type} Alert</span>
-                    <span class="card-time">${time}</span>
+                    <span class="card-title">${alert.type} Update</span>
+                    <span class="severity-badge status-${alert.severity.toLowerCase()}">${alert.severity.toUpperCase()}</span>
                 </div>
                 <div class="card-msg" style="font-weight:700;">${statusObj.msg}</div>
+                <div class="card-time">⌚ ${time}</div>
             `;
             feed.appendChild(div);
         });
@@ -400,4 +416,84 @@ function drawRouteToSafeZone(sLat, sLng, dLat, dLng, name) {
         L.polyline([[sLat, sLng], [dLat, dLng]], {color: '#10b981', weight: 6, dashArray: '10, 10'}).addTo(map);
         map.fitBounds([[sLat, sLng], [dLat, dLng]], {padding: [50, 50]});
     });
+}
+
+// ------------------------------------
+// SMS ALERT SYSTEM
+// ------------------------------------
+let currentSMSDetails = { location: 'Unknown', severity: 'Low', type: 'General' };
+
+function updateSMSPreview(location, severity, type) {
+    currentSMSDetails = { location, severity, type };
+    const previewBox = document.getElementById('sms-preview-msg');
+    const bubble = document.querySelector('.sms-bubble');
+    if (!previewBox) return;
+    
+    if (bubble) {
+        bubble.className = `sms-bubble severity-${severity.toLowerCase()}`;
+    }
+    
+    if (severity === 'High') {
+        previewBox.innerHTML = `⚠️ HIGH RISK ${type.toUpperCase()} detected in ${location}.<br>Evacuate immediately to safe zone.`;
+    } else if (severity === 'Medium') {
+        previewBox.innerHTML = `⚠️ Medium risk ${type.toLowerCase()} monitored in ${location}.<br>Normal activity is safe, but stay alert.`;
+    } else {
+        previewBox.innerHTML = `✅ Monitoring normal activity in ${location}.<br>No immediate danger.`;
+    }
+}
+
+async function sendSMSAlert() {
+    const phoneInput = document.getElementById('sms-phone').value.trim();
+    const statusMsg = document.getElementById('sms-status-msg');
+    const btn = document.getElementById('send-sms-btn');
+    
+    // Validate phone: 10-15 digits
+    const phoneRegex = /^\d{10,15}$/;
+    if (!phoneRegex.test(phoneInput)) {
+        statusMsg.className = 'sms-status error';
+        statusMsg.innerText = '❌ Please enter a valid phone number';
+        setTimeout(() => { statusMsg.innerText = ''; }, 3000);
+        return;
+    }
+    
+    // Loading State
+    statusMsg.className = 'sms-status loading';
+    statusMsg.innerText = '⏳ Sending alert...';
+    btn.disabled = true;
+    
+    const payload = {
+        phone_number: phoneInput,
+        message: document.getElementById('sms-preview-msg').innerText
+    };
+    
+    try {
+        const res = await fetch(`${API_BASE}/send-sms`, {
+            method: 'POST',
+            headers: {'Content-Type': 'application/json'},
+            body: JSON.stringify(payload)
+        });
+        
+        if (!res.ok) throw new Error("API Failed");
+        
+        const data = await res.json();
+        
+        if (data.success) {
+            statusMsg.className = 'sms-status success';
+            statusMsg.innerText = data.message || '✅ Real SMS Sent Successfully';
+        } else {
+            statusMsg.className = 'sms-status error';
+            statusMsg.innerText = data.message || 'SMS failed, switching to simulation mode';
+        }
+    } catch(e) {
+        // Fallback for demo if backend completely fails
+        setTimeout(() => {
+            statusMsg.className = 'sms-status error';
+            statusMsg.innerText = 'SMS failed, switching to simulation mode';
+        }, 1200);
+    } finally {
+        setTimeout(() => { 
+            statusMsg.innerText = ''; 
+            btn.disabled = false;
+        }, 4000);
+    }
 }

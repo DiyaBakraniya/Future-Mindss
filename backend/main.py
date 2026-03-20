@@ -4,6 +4,12 @@ from sqlalchemy.orm import Session
 import models, schemas
 from database import engine, get_db
 from ml_model import disaster_model
+from twilio.rest import Client
+import os
+
+ACCOUNT_SID = os.getenv("TWILIO_ACCOUNT_SID", "your_account_sid")
+AUTH_TOKEN = os.getenv("TWILIO_AUTH_TOKEN", "your_auth_token")
+TWILIO_PHONE = os.getenv("TWILIO_PHONE", "your_twilio_number")
 
 # Create the database tables
 try:
@@ -75,6 +81,32 @@ def get_alerts(db: Session = Depends(get_db)):
     except Exception as e:
         print(f"DB Error fetching alerts: {e}")
         return []
+
+@app.post("/api/send-sms", response_model=schemas.SMSResponse)
+def send_sms_alert(request: schemas.SMSRequest):
+    try:
+        if ACCOUNT_SID != "your_account_sid" and AUTH_TOKEN != "your_auth_token":
+            client = Client(ACCOUNT_SID, AUTH_TOKEN)
+            message = client.messages.create(
+                body=request.message,
+                from_=TWILIO_PHONE,
+                to=request.phone_number
+            )
+            print(f"Twilio SMS sent successfully. SID: {message.sid}")
+            return schemas.SMSResponse(
+                success=True,
+                message="✅ Real SMS Sent Successfully"
+            )
+        else:
+            raise ValueError("Twilio credentials not configured.")
+    except Exception as e:
+        print(f"Twilio credentials down or not configured, switching to simulation mode. Error: {e}")
+        # Fallback to Mock SMS
+        print(f"[SIMULATION] Sending SMS to {request.phone_number}:\n{request.message}")
+        return schemas.SMSResponse(
+            success=True,
+            message="✅ Simulation: SMS Sent Successfully"
+        )
 
 @app.post("/api/chat", response_model=schemas.ChatResponse)
 def emergency_chat(request: schemas.ChatRequest):

@@ -47,7 +47,7 @@
             <!-- RIGHT: INFO PANEL (30%) -->
             <div class="info-column">
                 <!-- C. SAFE ZONE FINDER -->
-                <div class="info-panel glass-panel hidden" id="safe-zone-panel" style="flex:1; border: 2px solid var(--blue); position: relative; overflow: visible;">
+                <div class="info-panel glass-panel hidden" id="safe-zone-panel" style="border: 2px solid var(--blue); position: relative; overflow: visible;">
                     <div class="glow-bg"></div>
                     <h2>🧭 Nearest Safe Zone</h2>
                     <div id="safe-zone-content">
@@ -55,15 +55,33 @@
                     </div>
                 </div>
 
+                <!-- SMS ALERT SYSTEM -->
+                <div class="info-panel glass-panel" id="sms-panel">
+                    <h2>📲 Get Emergency Alerts</h2>
+                    <div class="sms-preview-container">
+                        <div class="sms-preview-label animate-pulse-fast">🚨 LIVE SMS PREVIEW</div>
+                        <div class="sms-bubble severity-low">
+                            <div id="sms-preview-msg" class="sms-preview-text">
+                                Monitoring normal activity...
+                            </div>
+                        </div>
+                    </div>
+                    <div class="sms-input-group">
+                        <input type="tel" id="sms-phone" class="sms-input" placeholder="Enter phone number (10-15 digits)" autocomplete="tel">
+                        <button id="send-sms-btn" class="sms-btn" onclick="sendSMSAlert()">📩 Send Alert</button>
+                    </div>
+                    <div id="sms-status-msg" class="sms-status"></div>
+                </div>
+
                 <!-- A. AI FUTURE PREDICTIONS -->
-                <div class="info-panel glass-panel" style="flex:1;">
+                <div class="info-panel glass-panel">
                     <h2>📢 AI Future Predictions</h2>
                     <div class="news-feed" id="news-feed"></div>
                 </div>
 
                 <!-- B. LIVE EMERGENCY FEED -->
-                <div class="info-panel glass-panel" style="flex:1;">
-                    <h2>🚨 Live Emergency Feed</h2>
+                <div class="info-panel glass-panel">
+                    <h2>🚨 Live Emergency Feed <span class="live-dot animate-pulse-fast"></span></h2>
                     <div class="alert-feed" id="alert-feed"></div>
                 </div>
             </div>
